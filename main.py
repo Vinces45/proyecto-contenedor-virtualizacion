@@ -7,23 +7,18 @@ from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 
-# TODO: Configurar logging
+# -- 1. Configuración Logging --
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
-
+# -- 2. Configuración Base de Datos --
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql+psycopg2://user:password@db:5432/mydb")
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
-
-
-app = FastAPI(title="CRUD API", version="1.0.0")
-
-# TODO: Definir modelos Pydantic
 
 class EstudianteDB(Base):
     __tablename__ = "estudiantes"
@@ -31,7 +26,6 @@ class EstudianteDB(Base):
     nombre = Column(String, nullable=False)
     email = Column(String, nullable=False)
     edad = Column(Integer, nullable=False)
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -51,6 +45,7 @@ def get_db():
     finally:
         db.close()
 
+# -- 3. Modelos Pydantic --
 class EstudianteCreate(BaseModel):
     nombre: str
     email: str
@@ -64,6 +59,7 @@ class EstudianteResponse(BaseModel):
     class Config:
         from_attributes = True
 
+# -- 4. Endpoints --
 @app.get("/estudiantes", response_model=List[EstudianteResponse])
 def listar_estudiantes(db: Session = Depends(get_db)):
     logger.info("GET /estudiantes - Listando todos los estudiantes")
@@ -74,7 +70,7 @@ def obtener_estudiante(estudiante_id: int, db: Session = Depends(get_db)):
     logger.info(f"GET /estudiantes/{estudiante_id} - Buscando estudiante")
     estudiante = db.query(EstudianteDB).filter(EstudianteDB.id == estudiante_id).first()
     
-    if not estudiante: # Manejo del error 404
+    if not estudiante: 
         logger.warning(f"Error 404: Estudiante con id {estudiante_id} no encontrado")
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")
     return estudiante
@@ -83,7 +79,6 @@ def obtener_estudiante(estudiante_id: int, db: Session = Depends(get_db)):
 def crear_estudiante(estudiante: EstudianteCreate, db: Session = Depends(get_db)):
     logger.info(f"POST /estudiantes - Creando estudiante: {estudiante.nombre}")
     
-    # modelo_dump() convierte el objeto a diccionario
     db_estudiante = EstudianteDB(**estudiante.model_dump())
     db.add(db_estudiante)
     db.commit()
@@ -97,7 +92,7 @@ def eliminar_estudiante(estudiante_id: int, db: Session = Depends(get_db)):
     logger.info(f"DELETE /estudiantes/{estudiante_id} - Intentando borrar")
     estudiante = db.query(EstudianteDB).filter(EstudianteDB.id == estudiante_id).first()
     
-    if not estudiante: # Manejo del error 404
+    if not estudiante: 
         logger.warning(f"Error 404 al borrar: Estudiante {estudiante_id} no encontrado")
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")
     
